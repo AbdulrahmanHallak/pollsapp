@@ -1,9 +1,11 @@
+from typing import Any
 from django.db.models.query import QuerySet
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponseRedirect
 from django.db.models import F
 from django.urls import reverse
 from django.views import generic
+from django.utils import timezone
 
 from .models import Choice, Question
 
@@ -16,17 +18,27 @@ class IndexView(generic.ListView):
 
     def get_queryset(self) -> QuerySet[Question]:
         """Return the last five published questions"""
-        return Question.objects.order_by("-pup_date")[:5]
+        return Question.objects.filter(pub_date__lte=timezone.now()).order_by(
+            "-pub_date"
+        )[:5]
 
 
 class DetailsView(generic.DetailView):
     template_name = "polls/details.html"
     model = Question
 
+    def get_queryset(self):
+        """exclude any questions that are not published yet"""
+        return Question.objects.filter(pub_date__lte=timezone.now())
+
 
 class ResultsView(generic.DetailView):
     model = Question
     template_name = "polls/results.html"
+
+    def get_queryset(self):
+        """exclude any questions that are not published yet"""
+        return Question.objects.filter(pub_date__lte=timezone.now())
 
 
 def vote(request, question_id):
