@@ -1,5 +1,5 @@
-from typing import Any
 from django.db.models.query import QuerySet
+from django.db.models import Exists, OuterRef
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponseRedirect
 from django.db.models import F
@@ -18,9 +18,14 @@ class IndexView(generic.ListView):
 
     def get_queryset(self) -> QuerySet[Question]:
         """Return the last five published questions"""
-        return Question.objects.filter(pub_date__lte=timezone.now()).order_by(
-            "-pub_date"
-        )[:5]
+        return (
+            Question.objects.filter(pub_date__lte=timezone.now())
+            .annotate(
+                has_choices=Exists(Choice.objects.filter(question=OuterRef("pk")))
+            )
+            .filter(has_choices=True)
+            .order_by("-pub_date")[:5]
+        )
 
 
 class DetailsView(generic.DetailView):
@@ -29,7 +34,9 @@ class DetailsView(generic.DetailView):
 
     def get_queryset(self):
         """exclude any questions that are not published yet"""
-        return Question.objects.filter(pub_date__lte=timezone.now())
+        return Question.objects.filter(pub_date__lte=timezone.now()).annotate(
+            has_choices=Exists(Choice.objects.filter(question=OuterRef("pk")))
+        )
 
 
 class ResultsView(generic.DetailView):
@@ -38,7 +45,13 @@ class ResultsView(generic.DetailView):
 
     def get_queryset(self):
         """exclude any questions that are not published yet"""
-        return Question.objects.filter(pub_date__lte=timezone.now())
+        return (
+            Question.objects.filter(pub_date__lte=timezone.now())
+            .annotate(
+                has_choices=Exists(Choice.objects.filter(question=OuterRef("pk")))
+            )
+            .filter(has_choices=True)
+        )
 
 
 def vote(request, question_id):
